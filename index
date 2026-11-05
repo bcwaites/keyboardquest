@@ -428,6 +428,8 @@
     color: var(--ink-soft);
     margin-top: 30px;
   }
+  footer a { color: var(--bar-lo); font-weight: 600; text-decoration: underline; }
+  footer a:hover { color: var(--ink); }
 
   @media (max-width: 520px) {
     /* instrument presets: 2 x 2 grid so they fit a phone */
@@ -566,7 +568,7 @@
     <p class="hint" id="hintText"></p>
   </div>
 
-  <footer>Marimba Warehouse — mallet note trainer</footer>
+  <footer>Marimba Warehouse — Want to Read More? Get the <a href="https://www.marimbawarehouse.com/webapps" target="_blank" rel="noopener">Melody Mixer</a></footer>
 </div>
 
 <script>
