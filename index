@@ -1058,13 +1058,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
   });
 
   // Instrument presets: range in MIDI numbers (A2=45, F3=53, C4=60, F4=65, C5=72, F6=89, C7=96).
-  // A preset with a staff also selects it; the vibraphone leaves the staff as it was.
+  // Every preset also selects the staff that suits it, so a staff never carries over from the previous preset.
   const PRESETS = {
     marimba: { low: 45, high: 96,  staff: 'grand'  },   // A2 – C7
-    vibes:   { low: 53, high: 89,  staff: null      },   // F3 – F6
+    vibes:   { low: 53, high: 89,  staff: 'treble'  },   // F3 – F6
     glock:   { low: 65, high: 96,  staff: 'treble'  },   // F4 – C7
     xylo:    { low: 53, high: 96,  staff: 'treble'  },   // F3 – C7
-    oct1:    { low: 60, high: 72,  staff: null      }    // C4 – C5
+    oct1:    { low: 60, high: 72,  staff: 'treble'  }    // C4 – C5
   };
 
   function syncRangeUI(){
