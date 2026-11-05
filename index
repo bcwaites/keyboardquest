@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mallet Note Finder</title>
+<title>Keyboard Quest</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -62,13 +62,66 @@
     margin: 2px 0 0;
   }
 
+  /* ---- Collapsible menu ---- */
+  .menu-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+
+  .menu-toggle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-panel);
+    border: 1px solid var(--frame);
+    border-radius: 12px;
+    padding: 10px 14px;
+    cursor: pointer;
+    color: var(--ink);
+    font-family: "Inter", sans-serif;
+    font-size: 14px;
+    text-align: left;
+  }
+  .menu-toggle:hover { border-color: var(--bar-lo); }
+  .menu-toggle:focus-visible { outline: 2px solid var(--bar-lo); outline-offset: 2px; }
+
+  .menu-title { font-weight: 700; flex: none; }
+  .menu-summary {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .menu-hint { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--bar-lo); flex: none; }
+  .menu-toggle .chev { width: 18px; height: 18px; flex: none; color: var(--bar-lo); transition: transform 0.25s ease; }
+  .menu-toggle[aria-expanded="false"] .chev { transform: rotate(180deg); }
+
+  .menu-actions { display: flex; gap: 8px; flex: none; }
+  .menu-actions .primary-btn { padding: 10px 14px; }
+
+  .menu-collapse {
+    display: grid;
+    grid-template-rows: 1fr;
+    margin-bottom: 20px;
+    transition: grid-template-rows 0.25s ease, margin-bottom 0.25s ease;
+  }
+  .menu-collapse.closed { grid-template-rows: 0fr; margin-bottom: 4px; }
+  .menu-collapse.closed .menu-inner { padding: 0; margin: 0; visibility: hidden; transition: visibility 0s 0.25s; }
+  /* padding + negative margin give focus rings and the Restart pulse room inside the clipped area */
+  .menu-inner { min-height: 0; overflow: hidden; padding: 2px 8px 10px; margin: -2px -8px -10px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .menu-collapse, .menu-toggle .chev { transition: none; }
+  }
+
   /* ---- Settings panel ---- */
   .panel {
     background: var(--bg-panel);
     border: 1px solid var(--frame);
     border-radius: 14px;
     padding: 16px 18px;
-    margin-bottom: 20px;
     display: flex;
     flex-wrap: wrap;
     gap: 18px 28px;
@@ -390,11 +443,25 @@
 
   <header>
     <div>
-      <h1>Mallet Note <span>Finder</span></h1>
-      <p class="tagline">Note identification drills for the marimba keyboard</p>
+      <h1>Keyboard <span>Quest</span></h1>
+      <p class="tagline">Note Identification Drills for The Keyboard Percussionist</p>
     </div>
   </header>
 
+  <div class="menu-bar">
+    <button type="button" class="menu-toggle" id="menuToggle" aria-expanded="true" aria-controls="menuCollapse">
+      <span class="menu-title">Menu</span>
+      <span class="menu-summary" id="menuSummary" hidden></span>
+      <span class="menu-hint" id="menuHint">Hide menu</span>
+      <svg class="chev" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 12.5l5-5 5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="menu-actions" id="menuActions" hidden>
+      <button class="primary-btn go-btn" id="goMini" hidden>GO!</button>
+      <button class="primary-btn" id="restartMini">Restart</button>
+    </div>
+  </div>
+
+  <div class="menu-collapse" id="menuCollapse"><div class="menu-inner">
   <div class="panel">
     <div class="field">
       <label>Mode</label>
@@ -463,6 +530,7 @@
       <button class="primary-btn" id="restartBtn">Restart</button>
     </div>
   </div>
+  </div></div>
 
   <div class="stats">
     <div class="stat"><div class="num" id="statScore">0</div><div class="lbl">Correct</div></div>
@@ -572,6 +640,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     streak: 0,
     locked: false,
     timer: null,
+    menuOpen: true,
     phase: 'free',                      // free | idle | running | over
     game: { on:false, secs:180 },
     clock: null,
@@ -614,6 +683,13 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
   const highSel = document.getElementById('highNote');
   const rangeSel = document.getElementById('rangeSel');
   const presetSeg = document.getElementById('presetSeg');
+  const menuToggle = document.getElementById('menuToggle');
+  const menuCollapse = document.getElementById('menuCollapse');
+  const menuSummary = document.getElementById('menuSummary');
+  const menuHint = document.getElementById('menuHint');
+  const menuActions = document.getElementById('menuActions');
+  const goMini = document.getElementById('goMini');
+  const restartMini = document.getElementById('restartMini');
 
   /* ---------- Answer buttons (chromatic order) ---------- */
   CHOICE_ORDER.forEach(p => {
@@ -770,10 +846,12 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
   // Spelled name, e.g. "F♯4". The octave is added only when the range is wide enough
   // that a note name appears more than once (12+ semitones); a one-octave range needs none.
-  function targetLabel(){
+  // Find the note asks for the name only (any octave counts); Read the staff needs the exact bar,
+  // so its feedback keeps the octave.
+  function targetLabel(withOctave){
     const p = pc(state.target);
     const letter = (!isNatural(state.target) && state.targetUsesFlat) ? FLAT[p] : SHARP[p];
-    return (state.high - state.low >= 12) ? letter + octaveOf(state.target) : letter;
+    return (withOctave && state.high - state.low >= 12) ? letter + octaveOf(state.target) : letter;
   }
 
   /* ---------- Staff (OpenSheetMusicDisplay) ---------- */
@@ -921,9 +999,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     } else {
       hideStaff();
       promptMode.textContent = 'Find this note on the keyboard';
-      promptNote.textContent = targetLabel();
+      promptNote.textContent = targetLabel(false);
       setChoicesVisible(false);
-      hintText.textContent = 'Click the correct bar.';
+      hintText.textContent = 'Click any bar with this note name. Any octave counts.';
     }
   }
 
@@ -979,12 +1057,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     if (state.activeMode === 'find' || state.activeMode === 'staff'){
       if (state.locked) return;
       state.locked = true;
-      const correct = (midi === state.target);
+      // Find the note: any bar with the right note name is correct. Read the staff: the exact bar.
+      const correct = state.activeMode === 'find' ? pc(midi) === pc(state.target) : midi === state.target;
       const g = barEl(midi);
       if (g) g.classList.add(correct ? 'correct-flash' : 'incorrect-flash');
       if (!correct) highlightBar(state.target);
-      playTone(state.target);
-      feedbackEl.textContent = correct ? 'Correct!' : `Not quite — here's ${targetLabel()}.`;
+      playTone(correct ? midi : state.target);   // a correct answer sounds the bar they chose
+      feedbackEl.textContent = correct ? 'Correct!'
+        : state.activeMode === 'find' ? `Not quite — ${targetLabel(false)} is highlighted.`
+        : `Not quite — here's ${targetLabel(true)}.`;
       feedbackEl.className = 'feedback ' + (correct ? 'correct' : 'incorrect');
       recordResult(correct);
       state.timer = setTimeout(nextQuestion, correct ? 700 : 1500);
@@ -1013,6 +1094,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
   function syncStaffUI(){
     staffField.hidden = !(state.mode === 'staff' || state.mode === 'mixed');
     [...staffSeg.children].forEach(b => b.classList.toggle('active', b.dataset.staff === state.staff));
+    updateSummary();
   }
 
   staffSeg.addEventListener('click', (e) => {
@@ -1025,6 +1107,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
   function syncAccButtons(){
     [...accSeg.children].forEach(b => b.classList.toggle('active', !!state.acc[b.dataset.acc]));
+    updateSummary();
   }
 
   accSeg.addEventListener('click', (e) => {
@@ -1074,6 +1157,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
       const pr = PRESETS[b.dataset.preset];
       b.classList.toggle('active', pr.low === state.low && pr.high === state.high);
     });
+    updateSummary();
   }
 
   presetSeg.addEventListener('click', (e) => {
@@ -1106,6 +1190,48 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     restart();
   });
 
+  /* ---------- Collapsible menu ---------- */
+  const MODE_NAMES = { name:'Name the note', find:'Find the note', staff:'Read the staff', mixed:'Mixed' };
+  const STAFF_NAMES = { treble:'Treble', bass:'Bass', grand:'Grand' };
+
+  // One-line description of the current settings, shown while the menu is collapsed
+  function updateSummary(){
+    const parts = [MODE_NAMES[state.mode]];
+    if (state.mode === 'staff' || state.mode === 'mixed') parts.push(STAFF_NAMES[state.staff]);
+    parts.push(rangeLabel(state.low) + '–' + rangeLabel(state.high));
+    const a = state.acc;
+    parts.push(a.none ? 'Naturals only' : (a.sharp && a.flat) ? '♯ ♭' : a.sharp ? '♯ only' : '♭ only');
+    parts.push(state.game.on ? 'Timed ' + fmt(state.game.secs) : 'Free play');
+    menuSummary.textContent = parts.join(' · ');
+  }
+
+  // While the menu is collapsed, GO! (timed game, before it starts) and Restart stay reachable in the bar
+  function syncMenuBar(){
+    menuActions.hidden = state.menuOpen;
+    goMini.hidden = !(state.game.on && state.phase === 'idle');
+  }
+
+  function setAttention(on){
+    restartBtn.classList.toggle('attention', on);
+    restartMini.classList.toggle('attention', on);
+  }
+
+  function setMenuOpen(open, save){
+    state.menuOpen = open;
+    menuCollapse.classList.toggle('closed', !open);
+    menuCollapse.inert = !open;                       // collapsed controls can't be tabbed to
+    menuCollapse.setAttribute('aria-hidden', String(!open));
+    menuToggle.setAttribute('aria-expanded', String(open));
+    menuHint.textContent = open ? 'Hide menu' : 'Show menu';
+    menuSummary.hidden = open;
+    syncMenuBar();
+    if (save){ try { localStorage.setItem('kq-menu-open', open ? '1' : '0'); } catch (e) {} }
+  }
+
+  menuToggle.addEventListener('click', () => setMenuOpen(!state.menuOpen, true));
+  goMini.addEventListener('click', () => startGame());
+  restartMini.addEventListener('click', () => restart());
+
   /* ---------- Timed game ---------- */
   function fmt(secs){
     return Math.floor(secs/60) + ':' + String(secs % 60).padStart(2,'0');
@@ -1130,6 +1256,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
       b.classList.toggle('active', (b.dataset.game === 'timed') === on));
     [...timeSeg.children].forEach(b =>
       b.classList.toggle('active', parseInt(b.dataset.secs,10) === state.game.secs));
+    updateSummary();
   }
 
   function stopClock(){
@@ -1171,7 +1298,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     setLocked(true);
     lockSettings(false);
     goBtn.disabled = false;
-    restartBtn.classList.remove('attention');
+    setAttention(false);
     statTime.textContent = fmt(state.game.secs);
     timeStat.classList.remove('low');
   }
@@ -1186,6 +1313,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     goBtn.disabled = true;
     startClock(state.game.secs);
     nextQuestion();
+    syncMenuBar();
   }
 
   function endGame(){
@@ -1205,7 +1333,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     promptZone.hidden = true;
     gameOverEl.hidden = false;
     setLocked(true);
-    restartBtn.classList.add('attention');
+    setAttention(true);
+    syncMenuBar();
   }
 
   gameSeg.addEventListener('click', (e) => {
@@ -1241,7 +1370,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
     hideStaff();
     gameOverEl.hidden = true;
     promptZone.hidden = false;
-    restartBtn.classList.remove('attention');
+    setAttention(false);
     lockSettings(false);
     setLocked(false);
     goBtn.disabled = false;
@@ -1251,11 +1380,15 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
       state.phase = 'free';
       nextQuestion();
     }
+    syncMenuBar();
   }
 
   syncGameUI();
   syncStaffUI();
   syncRangeUI();
+  let savedOpen = true;
+  try { savedOpen = localStorage.getItem('kq-menu-open') !== '0'; } catch (e) {}
+  setMenuOpen(savedOpen, false);
   restart();
 })();
 </script>
