@@ -349,19 +349,21 @@
     width: 100%;
     max-width: 440px;
     margin: 6px auto 4px;
-    padding: 6px 10px;
+    padding: 14px 10px;
     min-height: 120px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .staff-wrap.grand { min-height: 290px; }
-  .staff-wrap.single { min-height: 215px; }
+  .staff-wrap.grand { min-height: 320px; }
+  .staff-wrap.single { min-height: 240px; }
   /* ranges above C7 need up to nine ledger lines: smaller staff, card height fixed so nothing jumps */
-  .staff-wrap.single.tall { min-height: 190px; }
-  .staff-wrap.grand.tall { min-height: 250px; }
+  .staff-wrap.single.tall { min-height: 215px; }
+  .staff-wrap.grand.tall { min-height: 285px; }
   #staffHost { width: 100%; }
-  #staffHost svg { display: block; margin: 0 auto; }
+  /* OSMD sizes the SVG to the notation with no margin, so the outermost staff lines (bottom bass line, top ledger lines) were half-clipped at the SVG edge; let them draw past it */
+  #staffHost { padding: 12px 0; }
+  #staffHost svg { display: block; margin: 0 auto; overflow: visible; }
   .staff-error { font-size: 13px; color: var(--incorrect); text-align: center; padding: 20px; }
 
   .bar {
